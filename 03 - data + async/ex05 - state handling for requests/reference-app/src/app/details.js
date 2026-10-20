@@ -7,7 +7,7 @@ import { API_BASE_URL } from '../lib/apiBaseUrl';
 //   'delay=1500'          slow response
 //   'delay=1500&error=1'  server error
 //   'race=1'              shorter searches answer slower
-const TEST_PARAMS = 'delay=3000&error=1';
+const TEST_PARAMS = 'error=1';
 
 export default function DetailsScreen() {
   const router = useRouter();
@@ -17,6 +17,26 @@ export default function DetailsScreen() {
   const [steps, setSteps] = useState([]);
   const [errorMessage, setErrorMessage] = useState('');
 
+  /* 
+    useEffect(
+      () => {           // what happens    (callback function)
+        return () => {} // (optional: if effect callback returns another callback,
+        //              // that is what the cleanup behaviour will be (e.g. component re-mounts (unmount->mount))
+      },    
+      []                // when it happens (dependency array)
+     )
+  
+  
+    e.g. a useEffect that might fire when you click a different server or channel in discord (simplified):
+    useEffect(
+      () => {
+        client.connect(serverId, channelId);
+        client.loadMessages();
+        return () => { client.disconnect() }
+      },
+      [serverId, channelId]
+    )
+  */
   useEffect(() => {
     const controller = new AbortController();
 
@@ -44,7 +64,7 @@ export default function DetailsScreen() {
 
     loadSteps();
     return () => controller.abort();
-  }, [query, reloadKey]);
+  }, [query, reloadKey]); // I trigger the effect [] when component mounts, {query} when query text changes,
 
   function renderStep({ item }) {
     return <Text style={styles.stepLabel}>{item.label}</Text>;
