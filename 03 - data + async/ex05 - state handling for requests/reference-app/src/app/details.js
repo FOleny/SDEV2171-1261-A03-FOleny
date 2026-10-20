@@ -7,7 +7,7 @@ import { API_BASE_URL } from '../lib/apiBaseUrl';
 //   'delay=1500'          slow response
 //   'delay=1500&error=1'  server error
 //   'race=1'              shorter searches answer slower
-const TEST_PARAMS = 'delay=1500';
+const TEST_PARAMS = 'delay=3000&error=1';
 
 export default function DetailsScreen() {
   const router = useRouter();
@@ -24,6 +24,7 @@ export default function DetailsScreen() {
       setStatus('loading');
 
       try {
+        // this is encoded so that you can change TEST_PARAMS above (delay, error, race) without mangling the main URL
         const url = `${API_BASE_URL}/study-steps?q=${encodeURIComponent(query)}&${TEST_PARAMS}`;
         const response = await fetch(url, { signal: controller.signal });
 
