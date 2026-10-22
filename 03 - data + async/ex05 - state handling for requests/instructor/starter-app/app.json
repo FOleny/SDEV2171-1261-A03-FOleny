@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Fetching Remote Data Reference",
-    "slug": "fetching-remote-data-reference",
-    "scheme": "fetchingremotedatareference",
+    "name": "Loading Error Reference",
+    "slug": "loading-error-reference",
+    "scheme": "loadingerrorreference",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -12,7 +12,7 @@
       "backgroundColor": "#f5efe7"
     },
     "android": {
-      "package": "ca.nait.sdev2171.fetchingremotedatareference"
+      "package": "ca.nait.sdev2171.loadingerrorreference"
     },
     "ios": {
       "supportsTablet": true
