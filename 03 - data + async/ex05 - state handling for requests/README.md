@@ -1,8 +1,8 @@
 # Lesson 13: Loading, Errors, and Race Conditions
 
-Your lesson 12 screen shows "No study steps yet." in three different situations: while it's loading, when the request fails, and when there really is no data. Today you make the screen tell those apart, then fix a bug that most React apps with a search box have.
+The starter app fetches study steps and has a search box, but it shows "No study steps yet." in five different situations: while loading, after a server error, when the server is down, when a search matches nothing, and sometimes it shows results for a search you already changed. Today you fix them one at a time, then move all of that handling into a custom hook any screen can reuse.
 
-Start from your lesson 12 project. If yours isn't working, use the lesson 12 `reference-app`.
+The starter app is the lesson 12 screen with three changes: it calls the local backend instead of JSONPlaceholder, it no longer maps `title` to `label` (the backend already sends `label`), and it has a search box.
 
 ## Setup
 
@@ -23,169 +23,221 @@ No `npm install` needed. Check it in a browser: `http://localhost:3000/api/study
 | `delay=1500` | waits 1500 ms before answering |
 | `error=1` | answers with a 500 error and a message |
 | `race=1` | shorter searches answer slower: 2000 ms minus 400 ms per character |
+| `flaky=2` | fails twice for the same URL, then succeeds once, then starts over |
 
 The terminal logs every request, and logs `cancelled by the app` when your app cancels one.
 
-### 2. Point your app at it
+### 2. Run the starter app
 
-Create `src/lib/apiBaseUrl.js`:
-
-```js
-import { Platform } from 'react-native';
-
-// The Android emulator reaches your computer at 10.0.2.2.
-// The iOS simulator and the browser can use localhost.
-// On a physical phone, replace HOST with your computer's LAN IP, e.g. '192.168.1.50'.
-const HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
-
-export const API_BASE_URL = `http://${HOST}:3000/api`;
+```bash
+cd starter-app
+npm install
+npm start
 ```
 
-In `src/app/details.js`, import it:
+Press `w` for the browser, or open your development build.
+
+`src/lib/apiBaseUrl.js` picks the right address for your computer: `10.0.2.2` on the Android emulator, `localhost` everywhere else. On a physical phone, change `HOST` to your computer's LAN IP.
+
+### 3. See what's wrong
+
+`TEST_PARAMS` at the top of `src/app/details.js` is added to every request. Change it, save, then go back and reopen Study Steps.
+
+| Try | You see |
+| --- | --- |
+| `'delay=1500'` | "No study steps yet." for 1.5 s, then the list |
+| `'delay=1500&error=1'` | "No study steps yet." The error is only in the console |
+| Stop the server (`Ctrl`+`C`) | "No study steps yet." |
+| Search `zzz` | "No study steps yet." |
+| `'race=1'`, then type `che` quickly | 9 results. Only 3 steps contain "che" |
+
+Set it back to `'delay=1500'` and restart the server before you continue.
+
+## How to build and commit a change
+
+Build every change in this order:
+
+1. Add the state, with a hard-coded starting value
+2. Write every UI branch that state can produce
+3. Check each branch by changing the hard-coded value and saving
+4. Wire the logic that sets the state
+5. Test against the backend
+6. Commit
+
+## Showing request status
+
+Add `ActivityIndicator` to the `react-native` import, and a `status` state:
 
 ```js
-import { API_BASE_URL } from '../lib/apiBaseUrl';
+const [status, setStatus] = useState('success'); // 'loading' | 'success' | 'error'
 ```
 
-Change the fetch URL to `` `${API_BASE_URL}/study-steps` ``. The backend already returns `{ id, label }`, so replace the whole `setRemoteSteps(data.map(...))` call with:
+Replace the `steps.length === 0 ? ... : ...` block with one branch per status:
 
-```js
-setRemoteSteps(data);
-```
+| `status` | Screen |
+| --- | --- |
+| `'loading'` | an `ActivityIndicator` and "Loading study steps..." |
+| `'error'` | "Couldn't load study steps." |
+| `'success'` with no results | No study steps match "`query`". |
+| `'success'` with results | the list |
 
-The list should show 10 study steps, starting with "Charge laptop before class".
-
-## Challenge 1: Request states
-
-Replace `remoteSteps` with three pieces of state:
-
-```js
-const [status, setStatus] = useState('loading'); // 'loading' | 'success' | 'error'
-const [steps, setSteps] = useState([]);
-const [errorMessage, setErrorMessage] = useState('');
-```
-
-Add this above the component and add `?${TEST_PARAMS}` to the end of your fetch URL:
-
-```js
-// Test controls sent to the backend. Change, save, then press Retry.
-const TEST_PARAMS = 'delay=1500';
-```
-
-Your screen must:
-
-1. Show an `ActivityIndicator` and "Loading study steps..." while the request is running
-2. Show the list on success
-3. On a server error, show the message from the response body. The backend sends `{ "error": "..." }`
-4. On any error, show a **Retry** button that runs the request again
-
-Test all of these:
+Check each branch by changing `useState('success')` to `'loading'` and `'error'`. Then set it to `'loading'` and wire it: set `'loading'` before the request, `'success'` after `setSteps`, and `'error'` in the `catch`.
 
 | Test | Expected |
 | --- | --- |
-| `TEST_PARAMS = 'delay=1500'` | spinner for 1.5 s, then the list |
-| `TEST_PARAMS = 'delay=1500&error=1'` | "The server failed on purpose (error=1)." and Retry |
-| Stop the server (`Ctrl`+`C`) and press Retry | a network error: `Failed to fetch` in the browser, `Network request failed` on a device |
-| Start the server, set `TEST_PARAMS` back to `'delay=1500'`, press Retry | spinner, then the list |
+| `'delay=1500'` | spinner for 1.5 s, then the list |
+| `'delay=1500&error=1'` | "Couldn't load study steps." |
+| Search `zzz` | No study steps match "zzz". |
 
 <details>
 <summary>Solution</summary>
+
+```js
+const [status, setStatus] = useState('loading'); // 'loading' | 'success' | 'error'
+```
 
 ```js
 async function loadSteps() {
   setStatus('loading');
 
   try {
-    const response = await fetch(`${API_BASE_URL}/study-steps?${TEST_PARAMS}`);
-
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      throw new Error(body.error ?? `Server returned ${response.status}`);
-    }
-
+    // ...the fetch and response.ok check are unchanged
     setSteps(await response.json());
     setStatus('success');
   } catch (error) {
-    setErrorMessage(error.message);
+    console.error('request failed', error);
     setStatus('error');
   }
 }
-
-useEffect(() => {
-  loadSteps();
-}, []);
 ```
 
 ```jsx
 {status === 'loading' && (
-  <View>
-    <ActivityIndicator size="large" />
-    <Text>Loading study steps...</Text>
+  <View style={styles.card}>
+    <ActivityIndicator size="large" color="#8c5d35" />
+    <Text style={styles.cardTitle}>Loading study steps...</Text>
   </View>
 )}
 
 {status === 'error' && (
-  <View>
-    <Text>Couldn't load study steps</Text>
-    <Text>{errorMessage}</Text>
-    <Pressable onPress={loadSteps}>
-      <Text>Retry</Text>
-    </Pressable>
+  <View style={[styles.card, styles.errorCard]}>
+    <Text style={styles.cardTitle}>Couldn't load study steps.</Text>
   </View>
 )}
 
-{status === 'success' && (
+{status === 'success' && steps.length === 0 && (
+  <View style={styles.card}>
+    <Text style={styles.cardTitle}>No study steps match "{query}".</Text>
+  </View>
+)}
+
+{status === 'success' && steps.length > 0 && (
   <FlatList
     data={steps}
     keyExtractor={(item) => item.id}
-    renderItem={({ item }) => <Text>{item.label}</Text>}
+    renderItem={renderStep}
+    ItemSeparatorComponent={() => <View style={styles.separator} />}
+    style={styles.list}
   />
 )}
 ```
 
-`fetch` only rejects when there's no response at all. A 404 or 500 resolves normally, so you check `response.ok` and throw yourself. `.catch(() => ({}))` covers an error response that isn't JSON.
+One `status` value means the screen is always in exactly one state. With separate `isLoading` and `error` values, both can be set at once, and nothing says what the screen should show.
 
 </details>
 
-## Challenge 2: Search without stale results
+## Handling failed requests
 
-### Add the search
+Every HTTP response has a status code: 2xx means success, 4xx means the request was wrong, and 5xx means the server failed. A failed request still gets a response, and our backend explains the failure in the body: `{ "error": "..." }`.
 
-1. Add `query` state and a `TextInput` bound to it
-2. Add `q=${encodeURIComponent(query)}` to the fetch URL
-3. Move the request into an effect that reruns when the query changes. Replace Retry's `loadSteps` call with a counter:
+`fetch` only cares whether a response arrived. It resolves for a 500 just like for a 200, and only rejects when nothing answered (server down, wrong address, offline). So checking `response.ok` is your job:
+
+| What happened | What `fetch` does | What your code should do |
+| --- | --- | --- |
+| 2xx | resolves, `response.ok` is `true` | read the JSON, show the list |
+| 4xx or 5xx | resolves, `response.ok` is `false` | read the body's `error`, throw it |
+| No response | rejects with a `TypeError` | show the error |
+
+Add an `errorMessage` state, throw the server's message when `response.ok` is `false`, and show the message in the error card.
+
+| Test | Expected |
+| --- | --- |
+| `'delay=1500&error=1'` | "The server failed on purpose (error=1)." |
+| Stop the server | `Failed to fetch` in the browser, `Network request failed` on a device |
+
+<details>
+<summary>Solution</summary>
 
 ```js
-const [query, setQuery] = useState('');
+const [errorMessage, setErrorMessage] = useState('');
+```
+
+```js
+if (!response.ok) {
+  const body = await response.json().catch(() => ({}));
+  throw new Error(body.error ?? `Server returned ${response.status}`);
+}
+```
+
+```js
+} catch (error) {
+  setErrorMessage(error.message);
+  setStatus('error');
+}
+```
+
+```jsx
+<View style={[styles.card, styles.errorCard]}>
+  <Text style={styles.cardTitle}>Couldn't load study steps.</Text>
+  <Text style={styles.cardBody}>{errorMessage}</Text>
+</View>
+```
+
+Throwing for a bad status sends both kinds of failure to the same `catch`. `.catch(() => ({}))` covers an error response that isn't JSON.
+
+</details>
+
+## Retrying a request
+
+Add a Retry button to the error card that runs the request again.
+
+`loadSteps` is defined inside the effect, so a button can't call it. Instead, add a counter to the effect's dependencies. Changing the counter reruns the effect.
+
+| Test | Expected |
+| --- | --- |
+| Stop the server, open Study Steps, start the server, press Retry | error, then spinner, then the list |
+
+<details>
+<summary>Solution</summary>
+
+```js
 const [reloadKey, setReloadKey] = useState(0);
+```
 
-useEffect(() => {
-  async function loadSteps() {
-    // your Challenge 1 code, with the new URL
-  }
-
-  loadSteps();
+```js
 }, [query, reloadKey]);
 ```
 
 ```jsx
-<Pressable onPress={() => setReloadKey((key) => key + 1)}>
+<Pressable style={styles.button} onPress={() => setReloadKey((key) => key + 1)}>
+  <Text style={styles.buttonLabel}>Retry</Text>
+</Pressable>
 ```
 
-### Reproduce the bug
+</details>
 
-Set `TEST_PARAMS = 'race=1'`. Type `che` quickly.
+## Cancelling stale requests
 
-You should see 9 results instead of 3. Watch the server terminal: the request for `c` was sent first but answers last, and it overwrites the newer results.
+Set `TEST_PARAMS = 'race=1'` and type `che` quickly. You get 9 results. Watch the server terminal: the request for `c` was sent first but answers last, and because every response calls `setSteps`, it overwrites the newer results.
 
-### Fix it
+Think of an `AbortController` as a bomb you attach to a request. `new AbortController()` builds it, passing `controller.signal` to `fetch` attaches it, and `controller.abort()` sets it off: the request stops and `fetch` rejects with an `AbortError`.
 
-Cancel the previous request whenever the effect runs again. The cleanup function you return from an effect runs before the next run of that effect, and when the screen unmounts.
+Build a new bomb in every run of the effect, and set off the old one in the effect's cleanup. React runs the cleanup before it runs the effect again, so by the time the slow answer for `c` would arrive, its request is already gone. Cancelled requests still land in `catch`, so return early there if `controller.signal.aborted` is `true`.
 
-The fix is done when:
-
-- typing `che` quickly shows exactly 3 results
-- the server terminal shows `cancelled by the app` for the older requests
+| Test | Expected |
+| --- | --- |
+| `'race=1'`, type `che` quickly | exactly 3 results |
+| Server terminal | `cancelled by the app` for `?q=c` and `?q=ch` |
 
 <details>
 <summary>Solution</summary>
@@ -222,38 +274,149 @@ useEffect(() => {
 
 An aborted `fetch` rejects, so the `catch` runs. Checking `controller.signal.aborted` keeps a cancelled request from showing an error.
 
-The full finished screen is `reference-app/src/app/details.js`.
-
 </details>
 
-## Extensions
+## Refactoring into a custom hook
 
-Do any of these once Challenge 2 works.
+The screen now does two jobs: it manages a request (status, error message, retry, cancelling) and it decides what to show. The request half has nothing to do with study steps. Move it into a hook, `useFetch(url)`, so any screen can reuse it.
 
-| Extension | Done when |
-| --- | --- |
-| **Debounce:** wait 300 ms after the last keystroke before sending the request | typing `che` quickly sends one request, not three |
-| **Timeout:** give up after 5 seconds | `TEST_PARAMS = 'delay=8000'` shows "The server took more than 5 seconds to answer." |
-| **Server down:** a readable message for network errors | with the server stopped, the screen says "Can't reach the server. Is it running?" |
-| **Custom hook:** move the request into `useStudySteps(query, reloadKey)` in `src/hooks/useStudySteps.js` | the screen calls `const { status, steps, errorMessage } = useStudySteps(query, reloadKey);` and works the same |
+Work skeleton first:
+
+1. Create `src/hooks/useFetch.js`. Write the hook's contract with hard-coded values: it takes a `url` and returns `{ status: 'success', data: [], errorMessage: '', retry: () => {} }`
+2. Cut the state and the effect out of the screen. Build the URL in the screen, call `useFetch(url)`, and use `data ?? []` as the list. Save: the screen shows the no-matches message, which proves they're connected
+3. Paste the state and the effect into the hook. Rename `steps` to `data` (starting as `null`), depend on `url` instead of `query`, and return a `retry` function instead of exposing `reloadKey`
+4. In the screen, change Retry to `onPress={retry}`. Rerun every earlier test
+5. Reuse it: show "10 study steps saved" on the Home screen with one call to `useFetch`
 
 <details>
-<summary>Debounce</summary>
+<summary>Solution</summary>
 
-Replace the last two lines of the effect:
+`src/hooks/useFetch.js`:
 
 ```js
-const timeoutId = setTimeout(loadSteps, 300);
-return () => {
-  clearTimeout(timeoutId);
-  controller.abort();
-};
+import { useEffect, useState } from 'react';
+
+// Fetches JSON from url. Refetches when url changes or retry() is called.
+// Cancels the previous request whenever a new one starts.
+export function useFetch(url) {
+  const [status, setStatus] = useState('loading'); // 'loading' | 'success' | 'error'
+  const [data, setData] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function load() {
+      setStatus('loading');
+
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.error ?? `Server returned ${response.status}`);
+        }
+
+        setData(await response.json());
+        setStatus('success');
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setErrorMessage(error.message);
+        setStatus('error');
+      }
+    }
+
+    load();
+    return () => controller.abort();
+  }, [url, reloadKey]);
+
+  function retry() {
+    setReloadKey((key) => key + 1);
+  }
+
+  return { status, data, errorMessage, retry };
+}
+```
+
+In `src/app/details.js`, replace the state and the effect with:
+
+```js
+const url = `${API_BASE_URL}/study-steps?q=${encodeURIComponent(query)}&${TEST_PARAMS}`;
+const { status, data, errorMessage, retry } = useFetch(url);
+const steps = data ?? [];
+```
+
+In `src/app/index.js`:
+
+```js
+const { status, data } = useFetch(`${API_BASE_URL}/study-steps`);
+```
+
+```jsx
+<Text style={styles.body}>
+  {status === 'loading' && 'Loading study steps...'}
+  {status === 'error' && "Couldn't load study steps."}
+  {status === 'success' && `${data.length} study steps saved`}
+</Text>
 ```
 
 </details>
 
+## Challenges
+
+Pick one after class. Each one names a term to look up. Read until you understand it, then implement a solution in `useFetch` or alongside it, and commit it on its own.
+
+### Debounce the search
+
+Every keystroke sends a request. Typing `check` sends five, and four are cancelled right away. Look up **debounce**.
+
+- **Trigger it:** `TEST_PARAMS = 'race=1'`. Type `check` and count the requests in the server terminal
+- **Your solution:** send a request only after the user has stopped typing for 300 ms. Typing `check` quickly should log one request
+- **Hint:** delay the value, not the request. Write a `useDebouncedValue(value, delayMs)` hook, and build the URL from the debounced query
+
 <details>
-<summary>Timeout</summary>
+<summary>Solution</summary>
+
+`src/hooks/useDebouncedValue.js`:
+
+```js
+import { useEffect, useState } from 'react';
+
+// Returns value, but only after it has stopped changing for delayMs.
+export function useDebouncedValue(value, delayMs) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => setDebouncedValue(value), delayMs);
+    return () => clearTimeout(timeoutId);
+  }, [value, delayMs]);
+
+  return debouncedValue;
+}
+```
+
+In the screen:
+
+```js
+const debouncedQuery = useDebouncedValue(query, 300);
+const url = `${API_BASE_URL}/study-steps?q=${encodeURIComponent(debouncedQuery)}&${TEST_PARAMS}`;
+```
+
+</details>
+
+### Time out slow requests
+
+`fetch` has no time limit. If a server accepts the connection but never answers, the spinner can stay up for minutes. Look up **fetch timeout with AbortController**.
+
+- **Trigger it:** `TEST_PARAMS = 'delay=8000'`
+- **Your solution:** give up after 5 seconds and show "The server took more than 5 seconds to answer."
+- **Hint:** a timer can set off the same bomb the cleanup uses. Keep a flag, so `catch` can tell a timeout from a cleanup
+
+<details>
+<summary>Solution</summary>
+
+In `useFetch`:
 
 ```js
 useEffect(() => {
@@ -264,7 +427,7 @@ useEffect(() => {
     controller.abort();
   }, 5000);
 
-  async function loadSteps() {
+  async function load() {
     setStatus('loading');
 
     try {
@@ -278,52 +441,88 @@ useEffect(() => {
     }
   }
 
-  loadSteps();
+  load();
   return () => {
     clearTimeout(timeoutId);
     controller.abort();
   };
-}, [query, reloadKey]);
+}, [url, reloadKey]);
 ```
 
 </details>
 
-<details>
-<summary>Server down</summary>
+### Retry automatically with backoff
 
-A network failure rejects with a `TypeError`. In the `catch`:
+Many failures are temporary: the network drops for a second, or the server is restarting. Production apps retry a few times before showing an error, and wait longer each time so they don't flood a server that's struggling. Look up **exponential backoff**.
+
+- **Trigger it:** `TEST_PARAMS = 'flaky=2'`, then `'flaky=5'`
+- **Your solution:** retry up to 3 times, waiting 500 ms, 1000 ms, then 2000 ms. With `flaky=2`, the list appears after the third request with no error. With `flaky=5`, the error appears after the fourth
+- **Hint:** put the request in a loop, and wait between attempts. Check `controller.signal.aborted` after every wait
+
+<details>
+<summary>Solution</summary>
+
+In `useFetch`, above the hook:
 
 ```js
-setErrorMessage(error instanceof TypeError ? "Can't reach the server. Is it running?" : error.message);
+const MAX_RETRIES = 3;
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 ```
 
-</details>
-
-<details>
-<summary>Custom hook</summary>
-
-`src/hooks/useStudySteps.js`:
+Replace `load` inside the effect:
 
 ```js
-import { useEffect, useState } from 'react';
-import { API_BASE_URL } from '../lib/apiBaseUrl';
+async function load() {
+  setStatus('loading');
 
-const TEST_PARAMS = 'delay=1500';
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(url, { signal: controller.signal });
 
-export function useStudySteps(query, reloadKey) {
-  const [status, setStatus] = useState('loading');
-  const [steps, setSteps] = useState([]);
-  const [errorMessage, setErrorMessage] = useState('');
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error ?? `Server returned ${response.status}`);
+      }
 
-  useEffect(() => {
-    // the whole effect from Challenge 2
-  }, [query, reloadKey]);
+      setData(await response.json());
+      setStatus('success');
+      return;
+    } catch (error) {
+      if (controller.signal.aborted) return;
 
-  return { status, steps, errorMessage };
+      if (attempt === MAX_RETRIES) {
+        setErrorMessage(error.message);
+        setStatus('error');
+        return;
+      }
+
+      await wait(500 * 2 ** attempt);
+      if (controller.signal.aborted) return;
+    }
+  }
 }
 ```
 
-In the screen, remove the three state values and the effect, and import the hook.
+</details>
+
+### Readable network errors
+
+`Failed to fetch` and `Network request failed` mean nothing to a user, and the wording is different on every platform. Look up **fetch TypeError**.
+
+- **Trigger it:** stop the server. Then also try a wrong port in `src/lib/apiBaseUrl.js`
+- **Your solution:** when no response arrived, show "Can't reach the server. Check your connection and try again." Keep showing the server's own message for HTTP errors
+- **Hint:** `fetch` rejects with a `TypeError` only when no response arrived. HTTP errors reach `catch` as the `Error` you threw yourself
+
+<details>
+<summary>Solution</summary>
+
+In the `catch` in `useFetch`:
+
+```js
+setErrorMessage(
+  error instanceof TypeError ? "Can't reach the server. Check your connection and try again." : error.message
+);
+```
 
 </details>
 
@@ -334,18 +533,18 @@ In the screen, remove the three state values and the effect, and import the hook
 | `Failed to fetch` or `Network request failed` right away | Is `node server.js` running? On the Android emulator, is `HOST` `10.0.2.2`? On a phone, is it your computer's LAN IP, on the same Wi-Fi? |
 | Stuck on loading forever | A path through your code never calls `setStatus('success')` or `setStatus('error')` |
 | Error screen shows `Server returned 404` | The URL path is wrong. It must be `/api/study-steps` |
-| Retry does nothing | In Challenge 2, Retry has to change `reloadKey`, and `reloadKey` has to be in the effect's dependency array |
-| The server terminal floods with requests | `onPress={loadSteps()}` runs the request on every render. Use `onPress={loadSteps}` |
-| After the fix, a cancelled request shows an error | You're missing `if (controller.signal.aborted) return;` in the `catch` |
-| Still stuck | Compare with `reference-app/src/app/details.js` |
+| Retry does nothing | `reloadKey` has to be in the effect's dependency array |
+| After the refactor, the list never changes when you search | The hook's effect has to depend on `url`, not `query` |
+| After adding cancelling, a cancelled request shows an error | You're missing `if (controller.signal.aborted) return;` in the `catch` |
+| Still stuck | Compare with the class repository's commit for that step |
 
 ## Exercise
 
-Submit a write-up of 1 to 2 pages (Markdown or PDF):
+Do one challenge, then submit a write-up of 1 to 2 pages (Markdown or PDF):
 
-1. **Status:** paste your request code. Explain why one `status` value is safer than separate `isLoading` and `error` values, with an example of a state the booleans allow that makes no sense
-2. **Two kinds of failure:** explain the difference between a 500 response and a network error. How does your code handle each one?
-3. **The race:** paste the server terminal lines from your race test, before and after the fix. Explain why the wrong results appeared, and how the cleanup function prevents it
-4. **One extension:** which one you did, the code, and how you tested it
+1. **The problem:** in your own words, what the challenge's term means and what problem it solves. Name one source you read
+2. **Your solution:** paste the code you changed, and explain how it works
+3. **Proof:** the `TEST_PARAMS` you used, and the server terminal lines before and after your change
+4. **The race:** explain why typing quickly showed the wrong results before you added cancelling, and how the effect's cleanup prevents it
 
 Include one screenshot of your error state, with a caption saying how you triggered it.
