@@ -1,5 +1,5 @@
 {
-  "name": "lesson-13-starter",
+  "name": "fetching-remote-data-reference",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {

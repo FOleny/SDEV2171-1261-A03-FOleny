@@ -1,107 +1,172 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { API_BASE_URL } from '../lib/apiBaseUrl';
-
-// Test controls sent to the backend. Change, save, then reopen this screen.
-//   'delay=1500'          slow response
-//   'delay=1500&error=1'  server error
-//   'race=1'              shorter searches answer slower
-//   'flaky=2'             fails twice for the same URL, then succeeds
-const TEST_PARAMS = 'delay=1500';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 export default function DetailsScreen() {
   const router = useRouter();
-  const [query, setQuery] = useState('');
-  const [steps, setSteps] = useState([]);
+  const [remoteSteps, setRemoteSteps] = useState([]);
+
+  async function loadRemoteSteps() {
+    try {
+      const response = await fetch('https://jsonplaceholder.typicode.com/todos?_limit=6');
+
+      if (!response.ok) {
+        throw new Error(`Response status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      setRemoteSteps(
+        data.map((item) => ({
+          id: String(item.id),
+          label: item.title,
+        }))
+      );
+    } catch (error) {
+      console.error('request failed', error);
+    }
+  }
 
   useEffect(() => {
-    async function loadSteps() {
-      try {
-        // encodeURIComponent makes the user's search text safe to put in a URL.
-        // TEST_PARAMS is added as-is, since you write it yourself.
-        const url = `${API_BASE_URL}/study-steps?q=${encodeURIComponent(query)}&${TEST_PARAMS}`;
-        const response = await fetch(url);
-
-        if (!response.ok) {
-          throw new Error(`Response status: ${response.status}`);
-        }
-
-        setSteps(await response.json());
-      } catch (error) {
-        console.error('request failed', error);
-      }
-    }
-
-    loadSteps();
-  }, [query]);
+    loadRemoteSteps();
+  }, []);
 
   function renderStep({ item }) {
-    return <Text style={styles.stepLabel}>{item.label}</Text>;
+    return (
+      <View style={styles.stepRow}>
+        <Text style={styles.stepLabel}>{item.label}</Text>
+      </View>
+    );
   }
 
   return (
-    <View style={styles.screen}>
-      <Text style={styles.title}>Study Steps</Text>
+    <View style={styles.safeArea}>
+      <View style={styles.container}>
+        <Text style={styles.eyebrow}>SDEV2171 lesson 12</Text>
+        <Text style={styles.title}>Study Steps</Text>
 
-      <TextInput
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Search study steps"
-        autoCapitalize="none"
-        style={styles.input}
-      />
+        {remoteSteps.length === 0 ? (
+          <View style={styles.emptyStateCard}>
+            <Text style={styles.emptyStateTitle}>No study steps yet.</Text>
+            <Text style={styles.emptyStateBody}>
+              The list loads when this screen opens.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.listCard}>
+            <Text style={styles.listLabel}>Study list</Text>
+            <FlatList
+              data={remoteSteps}
+              keyExtractor={(item) => item.id}
+              renderItem={renderStep}
+              ItemSeparatorComponent={() => <View style={styles.separator} />}
+              style={styles.list}
+              contentContainerStyle={styles.listContent}
+            />
+          </View>
+        )}
 
-      {steps.length === 0 ? (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>No study steps yet.</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={steps}
-          keyExtractor={(item) => item.id}
-          renderItem={renderStep}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          style={styles.list}
-        />
-      )}
-
-      <Pressable style={styles.secondaryButton} onPress={() => router.back()}>
-        <Text style={styles.secondaryButtonLabel}>Go back</Text>
-      </Pressable>
+        <Pressable style={styles.secondaryButton} onPress={() => router.back()}>
+          <Text style={styles.secondaryButtonLabel}>Go back</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
-// Includes the styles later steps use (errorCard, cardBody, button), so the commits only change logic and JSX.
 const styles = StyleSheet.create({
-  screen: { flex: 1, gap: 16, padding: 24, paddingTop: 42, backgroundColor: '#f5efe7' },
-  title: { fontSize: 30, fontWeight: '800', color: '#1f1b18' },
-  input: {
-    borderWidth: 1,
-    borderColor: '#d2c4b5',
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 15,
-    backgroundColor: '#fffdfb',
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f5efe7',
+    padding: 24,
+    paddingTop: 42,
   },
-  card: {
+  container: {
+    flex: 1,
+    gap: 18,
+  },
+  eyebrow: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: '#8c5d35',
+  },
+  title: {
+    fontSize: 30,
+    fontWeight: '800',
+    lineHeight: 36,
+    color: '#1f1b18',
+  },
+  body: {
+    fontSize: 15,
+    lineHeight: 23,
+    color: '#5d554d',
+  },
+  listCard: {
+    flex: 1,
+    minHeight: 220,
     padding: 18,
-    gap: 12,
-    alignItems: 'flex-start',
     borderWidth: 1,
     borderColor: '#d7cec4',
-    borderRadius: 16,
+    borderRadius: 18,
     backgroundColor: '#fff8f2',
+    gap: 10,
   },
-  errorCard: { borderColor: '#d3b3a8', backgroundColor: '#fff4f1' },
-  cardTitle: { fontSize: 17, fontWeight: '800', color: '#2d2620' },
-  cardBody: { fontSize: 15, color: '#5d554d' },
-  list: { flexGrow: 0 },
-  stepLabel: { fontSize: 15, color: '#2d2620' },
-  separator: { height: 12 },
-  button: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 999, backgroundColor: '#8c5d35' },
-  buttonLabel: { fontSize: 14, fontWeight: '700', color: '#fffdfb' },
-  secondaryButton: { alignSelf: 'flex-start', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 999, backgroundColor: '#ece2d1' },
-  secondaryButtonLabel: { fontSize: 14, fontWeight: '700', color: '#4d3214' },
+  list: {
+    flex: 1,
+  },
+  listContent: {
+    paddingBottom: 12,
+  },
+  listLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#8c5d35',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  stepRow: {
+    paddingVertical: 6,
+  },
+  stepLabel: {
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#2d2620',
+  },
+  separator: {
+    height: 10,
+  },
+  emptyStateCard: {
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#d7cec4',
+    borderRadius: 18,
+    backgroundColor: '#fff8f2',
+    gap: 8,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    lineHeight: 24,
+    color: '#2d2620',
+  },
+  emptyStateBody: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#5d554d',
+  },
+  secondaryButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: '#ece2d1',
+  },
+  secondaryButtonLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#4d3214',
+  },
 });
