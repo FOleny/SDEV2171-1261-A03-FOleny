@@ -24,7 +24,8 @@ export default function DetailsScreen() {
   const [steps, setSteps] = useState([]);
 
   // I'm going to use state not just to hold data, but to observe & handle the state of my request.
-  const [status, setStatus] = useState('success')  //  'loading' | 'success' | 'error'
+  // I'm starting by manually changing this state UI-side to make sure all my UI branches work right, *then* I'll let the request/response cycle drive it.
+  const [status, setStatus] = useState('loading')  //  'loading' | 'success' | 'error'
 
   useEffect(() => {
     async function loadSteps() {
@@ -63,7 +64,14 @@ export default function DetailsScreen() {
         style={styles.input}
       />
 
-      {steps.length === 0 ? (
+      {status === 'loading' && (
+        <View style={styles.card}>
+          <ActivityIndicator size="large" color="#8c5d35" />
+          <Text style={styles.cardTitle}>Loading study steps...</Text>
+        </View>
+      )}
+
+      {/* {steps.length === 0 ? (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>No study steps yet.</Text>
         </View>
@@ -75,7 +83,7 @@ export default function DetailsScreen() {
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           style={styles.list}
         />
-      )}
+      )} */}
 
       <Pressable style={styles.secondaryButton} onPress={() => router.back()}>
         <Text style={styles.secondaryButtonLabel}>Go back</Text>
