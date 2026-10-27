@@ -25,7 +25,7 @@ export default function DetailsScreen() {
 
   // I'm going to use state not just to hold data, but to observe & handle the state of my request.
   // I'm starting by manually changing this state UI-side to make sure all my UI branches work right, *then* I'll let the request/response cycle drive it.
-  const [status, setStatus] = useState('loading')  //  'loading' | 'success' | 'error'
+  const [status, setStatus] = useState('error')  //  'loading' | 'success' | 'error'
 
   useEffect(() => {
     async function loadSteps() {
@@ -68,6 +68,12 @@ export default function DetailsScreen() {
         <View style={styles.card}>
           <ActivityIndicator size="large" color="#8c5d35" />
           <Text style={styles.cardTitle}>Loading study steps...</Text>
+        </View>
+      )}
+
+      {status === 'error' && (
+        <View style={[styles.card, styles.errorCard]}>
+          <Text style={styles.cardTitle}>Error loading study steps.</Text>
         </View>
       )}
 
