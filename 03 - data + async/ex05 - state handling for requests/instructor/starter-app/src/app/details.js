@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View 
+} from 'react-native';
 import { API_BASE_URL } from '../lib/apiBaseUrl';
 
 // Test controls sent to the backend. Change, save, then reopen this screen.
@@ -14,6 +22,9 @@ export default function DetailsScreen() {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [steps, setSteps] = useState([]);
+
+  // I'm going to use state not just to hold data, but to observe & handle the state of my request.
+  const [status, setStatus] = useState('success')  //  'loading' | 'success' | 'error'
 
   useEffect(() => {
     async function loadSteps() {
