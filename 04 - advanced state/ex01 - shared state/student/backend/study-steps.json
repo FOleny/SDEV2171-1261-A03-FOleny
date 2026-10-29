@@ -1,0 +1,12 @@
+[
+  { "id": "1", "label": "Charge laptop before class" },
+  { "id": "2", "label": "Check the emulator still boots" },
+  { "id": "3", "label": "Check the backend is running" },
+  { "id": "4", "label": "Review the lesson 12 fetch code" },
+  { "id": "5", "label": "Pack headphones for lab work" },
+  { "id": "6", "label": "Read the error message before changing code" },
+  { "id": "7", "label": "Retry after a failed request" },
+  { "id": "8", "label": "Commit working code before the break" },
+  { "id": "9", "label": "Clear old logs from the terminal" },
+  { "id": "10", "label": "Check the network tab for slow requests" }
+]
