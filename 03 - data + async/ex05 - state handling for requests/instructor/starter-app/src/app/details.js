@@ -16,7 +16,7 @@ import { API_BASE_URL } from '../lib/apiBaseUrl';
 //   'delay=1500&error=1'  server error
 //   'race=1'              shorter searches answer slower
 //   'flaky=2'             fails twice for the same URL, then succeeds
-const TEST_PARAMS = 'delay=1500';
+const TEST_PARAMS = 'delay=1500&error=1';
 
 export default function DetailsScreen() {
   const router = useRouter();
@@ -25,7 +25,9 @@ export default function DetailsScreen() {
 
   // I'm going to use state not just to hold data, but to observe & handle the state of my request.
   // I'm starting by manually changing this state UI-side to make sure all my UI branches work right, *then* I'll let the request/response cycle drive it.
-  const [status, setStatus] = useState('success')  //  'loading' | 'success' | 'error'
+  const [status, setStatus]             = useState('loading')  //  'loading' | 'success' | 'error'
+  const [errorMessage, setErrorMessage] = useState('');
+
 
   useEffect(() => {
     async function loadSteps() {
@@ -36,12 +38,16 @@ export default function DetailsScreen() {
         const response = await fetch(url);
 
         if (!response.ok) {
-          throw new Error(`Response status: ${response.status}`);
+          const body = await response.json().catch(() => ({})); // catch-all catch expression; I want to capture any error, not just JSON/HTTP errors 
+          throw new Error(body.error ?? `Server returned ${response.status}`)
+          // first, try to get an error message out of the response
+          // if there is none, return a prepapred string w/ just the HTTP status code
         }
 
         setSteps(await response.json());
       } catch (error) {
-        console.error('request failed', error);
+        // console.error('request failed', error);
+        setErrorMessage(error.message);
         setStatus('error'); // oops
       }
     }
@@ -75,6 +81,7 @@ export default function DetailsScreen() {
       {status === 'error' && (
         <View style={[styles.card, styles.errorCard]}>
           <Text style={styles.cardTitle}>Error loading study steps.</Text>
+          <Text style={styles.cardBody}>{errorMessage}</Text>
         </View>
       )}
 
