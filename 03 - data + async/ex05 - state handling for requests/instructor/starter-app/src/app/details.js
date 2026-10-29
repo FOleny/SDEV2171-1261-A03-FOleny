@@ -27,6 +27,8 @@ export default function DetailsScreen() {
   // I'm starting by manually changing this state UI-side to make sure all my UI branches work right, *then* I'll let the request/response cycle drive it.
   const [status, setStatus]             = useState('loading')  //  'loading' | 'success' | 'error'
   const [errorMessage, setErrorMessage] = useState('');
+  
+  const [reloadKey, setReloadKey] = useState(0); // I'm going to use this to 'key' each specific request/retry (full payoff in next commit)
 
 
   useEffect(() => {
@@ -53,7 +55,7 @@ export default function DetailsScreen() {
     }
 
     loadSteps();
-  }, [query]);
+  }, [query, reloadKey]);  // I just need to increment the key to re-fire the request cycle
 
   function renderStep({ item }) {
     return <Text style={styles.stepLabel}>{item.label}</Text>;
@@ -82,6 +84,12 @@ export default function DetailsScreen() {
         <View style={[styles.card, styles.errorCard]}>
           <Text style={styles.cardTitle}>Error loading study steps.</Text>
           <Text style={styles.cardBody}>{errorMessage}</Text>
+          <Pressable
+            style={styles.button}
+            onPress={() => setReloadKey((key) => key + 1)}
+          >
+            <Text style={styles.buttonLabel}>Retry</Text>
+          </Pressable>
         </View>
       )}
 
