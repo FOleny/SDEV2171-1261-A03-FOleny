@@ -16,7 +16,7 @@ import { API_BASE_URL } from '../lib/apiBaseUrl';
 //   'delay=1500&error=1'  server error
 //   'race=1'              shorter searches answer slower
 //   'flaky=2'             fails twice for the same URL, then succeeds
-const TEST_PARAMS = 'delay=1500&error=1';
+const TEST_PARAMS = 'race=1';
 
 export default function DetailsScreen() {
   const router = useRouter();
@@ -33,11 +33,14 @@ export default function DetailsScreen() {
 
   useEffect(() => {
     async function loadSteps() {
+      setStatus('loading');
+
       try {
         // encodeURIComponent makes the user's search text safe to put in a URL.
         // TEST_PARAMS is added as-is, since you write it yourself.
         const url = `${API_BASE_URL}/study-steps?q=${encodeURIComponent(query)}&${TEST_PARAMS}`;
         const response = await fetch(url);
+        console.log(response);
 
         if (!response.ok) {
           const body = await response.json().catch(() => ({})); // catch-all catch expression; I want to capture any error, not just JSON/HTTP errors 
@@ -47,6 +50,7 @@ export default function DetailsScreen() {
         }
 
         setSteps(await response.json());
+        setStatus('success'); // oops
       } catch (error) {
         // console.error('request failed', error);
         setErrorMessage(error.message);
