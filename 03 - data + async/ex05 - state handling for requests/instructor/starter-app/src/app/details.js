@@ -32,14 +32,23 @@ export default function DetailsScreen() {
 
 
   useEffect(() => {
+
+    const controller = new AbortController();
+
     async function loadSteps() {
       setStatus('loading');
+
+      // I can connect this to a request when it fires, and 'detonate' it to cancel that request
+      // (e.g. if I want to re-fire it)
 
       try {
         // encodeURIComponent makes the user's search text safe to put in a URL.
         // TEST_PARAMS is added as-is, since you write it yourself.
         const url = `${API_BASE_URL}/study-steps?q=${encodeURIComponent(query)}&${TEST_PARAMS}`;
-        const response = await fetch(url);
+        const response = await fetch(
+          url,
+          {signal: controller.signal} // this is the 'umbilical connection' between the request and the AbortController
+        );
         console.log(response);
 
         if (!response.ok) {
@@ -53,12 +62,17 @@ export default function DetailsScreen() {
         setStatus('success'); // oops
       } catch (error) {
         // console.error('request failed', error);
+        if (controller.signal.abort) return; // if I've already canceled the request, don't show error state
         setErrorMessage(error.message);
         setStatus('error'); // oops
       }
     }
 
     loadSteps();
+    // if a useEffect callback returns a nested callback, that nested callback runs as cleanup (on component dismount)
+    // just remember: re-rendering the component (e.g. if state updates) means dismounting and re-mounting it
+    // clearer sketch of the structure: https://react.dev/reference/react/useEffect#usage
+    return () => controller.abort(); // we're saying, any time this effect re-fires, kill the fetch that was happening the previous effect fire
   }, [query, reloadKey]);  // I just need to increment the key to re-fire the request cycle
 
   function renderStep({ item }) {
