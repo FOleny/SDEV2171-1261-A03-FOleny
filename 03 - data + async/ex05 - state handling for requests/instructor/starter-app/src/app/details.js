@@ -42,6 +42,7 @@ export default function DetailsScreen() {
         setSteps(await response.json());
       } catch (error) {
         console.error('request failed', error);
+        setStatus('error'); // oops
       }
     }
 
