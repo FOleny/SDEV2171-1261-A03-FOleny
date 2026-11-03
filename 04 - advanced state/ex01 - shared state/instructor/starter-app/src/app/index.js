@@ -2,8 +2,12 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useStudyPlan } from '../context/StudyPlanContext';
+
 export default function HomeScreen() {
   const router = useRouter();
+
+  useStudyPlan(); // temporary to test the provider guard
 
   return (
     <View style={styles.screen}>
