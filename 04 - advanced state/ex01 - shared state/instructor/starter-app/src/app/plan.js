@@ -2,16 +2,12 @@ import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useStudyPlan } from '../context/StudyPlanContext';
+
+
 export default function PlanScreen() {
   const router = useRouter();
-  const { steps } = useLocalSearchParams();
-
-  // The useState initializer runs once, when this screen mounts.
-  const [planSteps, setPlanSteps] = useState(() => JSON.parse(steps ?? '[]'));
-
-  function removeStep(id) {
-    setPlanSteps((currentSteps) => currentSteps.filter((step) => step.id !== id));
-  }
+  const {selectedSteps: planSteps, removeStep } = useStudyPlan();
 
   return (
     <ScrollView contentContainerStyle={styles.screen}>

@@ -18,7 +18,7 @@ export function StudyPlanProvider({ children }) {
   const value = {
     // we'll replace these with actual logic later
     selectedSteps: [],
-    toggleStep: () => {},
+    toggleStep: () => { console.log('toggled step'); },
     removeStep: () => {},
   };
 

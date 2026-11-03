@@ -7,9 +7,6 @@ import { useStudyPlan } from '../context/StudyPlanContext';
 export default function HomeScreen() {
   const router = useRouter();
 
-  useStudyPlan(); // temporary to test the provider guard
-  // no longer breaks because StudyPlanProvider wraps this component's rendering
-
   return (
     <View style={styles.screen}>
       <StatusBar style="dark" />

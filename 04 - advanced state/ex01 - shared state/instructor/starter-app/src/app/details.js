@@ -1,30 +1,22 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+
 import { API_BASE_URL } from '../lib/apiBaseUrl';
 import { useFetch } from '../hooks/useFetch';
+import { useStudyPlan } from '../context/StudyPlanContext';
+
 
 export default function DetailsScreen() {
   const router = useRouter();
   const { status, data, errorMessage, retry } = useFetch(`${API_BASE_URL}/study-steps?delay=500`);
   const steps = data ?? [];
-  const [selectedSteps, setSelectedSteps] = useState([]);
-
-  function toggleStep(step) {
-    setSelectedSteps((currentSteps) => {
-      const alreadySelected = currentSteps.some((entry) => entry.id === step.id);
-
-      if (alreadySelected) {
-        return currentSteps.filter((entry) => entry.id !== step.id);
-      }
-
-      return [...currentSteps, step];
-    });
-  }
+  const { selectedSteps, toggleStep } = useStudyPlan(); // replace with shared state (context)
+  // note: when destructuring, you can be selec
 
   function openPlan() {
     // Route params are strings, so the selected steps are sent as JSON.
-    router.push({ pathname: '/plan', params: { steps: JSON.stringify(selectedSteps) } });
+    router.push('/plan');
   }
 
   function renderStep({ item }) {
