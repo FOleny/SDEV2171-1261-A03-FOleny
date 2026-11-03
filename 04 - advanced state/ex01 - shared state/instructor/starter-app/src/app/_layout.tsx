@@ -1,5 +1,8 @@
 import { Stack } from 'expo-router';
 
+import { StudyPlanProvider } from '../context/StudyPlanContext';
+
+
 export default function Layout() {
   // we'd have an easy life if we could write simple shared state here,
   // the 'lowest common denominator' of where plan & details screens live
@@ -11,10 +14,12 @@ export default function Layout() {
 
   // solution (and something good to learn anyway) is React context, a.k.a. openly shareable state
   return (
-    <Stack>
-      <Stack.Screen name="index" options={{ title: 'Home' }} />
-      <Stack.Screen name="details" options={{ title: 'Study Steps' }} />
-      <Stack.Screen name="plan" options={{ title: 'Plan' }} />
-    </Stack>
+    <StudyPlanProvider>
+      <Stack>
+        <Stack.Screen name="index" options={{ title: 'Home' }} />
+        <Stack.Screen name="details" options={{ title: 'Study Steps' }} />
+        <Stack.Screen name="plan" options={{ title: 'Plan' }} />
+      </Stack>
+    </StudyPlanProvider>
   );
 }
