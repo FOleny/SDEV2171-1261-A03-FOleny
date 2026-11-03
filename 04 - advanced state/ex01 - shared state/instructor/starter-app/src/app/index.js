@@ -4,14 +4,19 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useStudyPlan } from '../context/StudyPlanContext';
 
+
 export default function HomeScreen() {
   const router = useRouter();
+
+  // example: more places in app wanting access to the same stateful data
+  const { selectedSteps } = useStudyPlan();
 
   return (
     <View style={styles.screen}>
       <StatusBar style="dark" />
       <Text style={styles.eyebrow}>SDEV2171 lesson 15</Text>
       <Text style={styles.title}>Home</Text>
+      <Text style={styles.body}>Your plan currently has {selectedSteps.length} steps.</Text>
       <Pressable style={styles.button} onPress={() => router.push('/details')}>
         <Text style={styles.buttonLabel}>Open study steps</Text>
       </Pressable>
