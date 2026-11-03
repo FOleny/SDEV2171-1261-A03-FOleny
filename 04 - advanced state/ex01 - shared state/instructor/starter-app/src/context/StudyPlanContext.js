@@ -3,7 +3,7 @@
 // REMINDER: functions (e.g. modern React components) don't store externally accessible persistent state like classes with attributes
 //           -> they're just functions; that's why you see so many hook-like things: it's outsourcing where persistent state needs to be stored
 
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useState } from 'react';
 
 
 const StudyPlanContext = createContext(null);  
@@ -15,12 +15,27 @@ export function StudyPlanProvider({ children }) {
   // the behaviour I want to deliver with context is:
   //  - where the data is stored (obvs, but also:)
   //  - how the data is supposed to be manipulated (toggle, remove)
-  const value = {
-    // we'll replace these with actual logic later
-    selectedSteps: [],
-    toggleStep: () => { console.log('toggled step'); },
-    removeStep: () => {},
-  };
+  const [selectedSteps, setSelectedSteps] = useState([]);
+  
+  function toggleStep(step) {
+    // Array.some just looks for one matching case for a condition
+    setSelectedSteps((currentSteps) => {
+      const alreadySelected = currentSteps.some((entry) => entry.id === step.id);
+
+      if (alreadySelected) {
+        return currentSteps.filter((entry) => entry.id !== step.id);
+      }
+
+      return [...currentSteps, step];
+    });
+  }
+
+  function removeStep(id) {
+    setSelectedSteps((currentSteps) => currentSteps.filter((step) => step.id !== id));
+  }
+
+  const value = { selectedSteps, toggleStep, removeStep };
+
 
   // it's like saran-wrapping a bunch of components in a shared state/logic provider
   return <StudyPlanContext value={value}>{children}</StudyPlanContext>
