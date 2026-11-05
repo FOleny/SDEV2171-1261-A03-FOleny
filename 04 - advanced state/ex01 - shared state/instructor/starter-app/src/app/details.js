@@ -12,7 +12,7 @@ export default function DetailsScreen() {
   const { status, data, errorMessage, retry } = useFetch(`${API_BASE_URL}/study-steps?delay=500`);
   const steps = data ?? [];
   const { selectedSteps, toggleStep } = useStudyPlan(); // replace with shared state (context)
-  // note: when destructuring, you can be selec
+  // no changes need to be made here! same names for stateful var & handler function
 
   function openPlan() {
     // Route params are strings, so the selected steps are sent as JSON.
